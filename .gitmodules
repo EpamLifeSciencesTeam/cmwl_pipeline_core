@@ -1,0 +1,12 @@
+[submodule "cmwl_pipeline_devops"]
+	branch = master
+	path = cmwl_pipeline_devops
+	url = ./cmwl_pipeline_devops
+[submodule "cmwl_pipeline"]
+	branch = master
+	path = cmwl_pipeline
+	url = ./cmwl_pipeline
+[submodule "cmwl_pipeline_fe"]
+	branch = master
+	path = cmwl_pipeline_fe
+	url = ./cmwl_pipeline_fe
