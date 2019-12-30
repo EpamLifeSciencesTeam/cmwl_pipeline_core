@@ -1,12 +1,12 @@
 [submodule "cmwl_pipeline_devops"]
 	branch = master
 	path = cmwl_pipeline_devops
-	url = ./cmwl_pipeline_devops
+	url = git@github.com:EpamLifeSciencesTeam/cmwl_pipeline_devops.git
 [submodule "cmwl_pipeline"]
 	branch = master
 	path = cmwl_pipeline
-	url = ./cmwl_pipeline
+	url = git@github.com:EpamLifeSciencesTeam/cmwl_pipeline.git
 [submodule "cmwl_pipeline_fe"]
 	branch = master
 	path = cmwl_pipeline_fe
-	url = ./cmwl_pipeline_fe
+	url = git@github.com:EpamLifeSciencesTeam/cmwl_pipeline_fe.git
