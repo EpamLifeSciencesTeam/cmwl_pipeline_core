@@ -1,0 +1,130 @@
+version: "3"
+
+# persistent volumes
+# to clean them up: `docker volume ls -q | grep cmwlpipelinecore | xargs docker volume rm`
+volumes:
+  gitlab_logs:
+    driver: local
+  gitlab_data:
+    driver: local
+  gitlab_config:
+    driver: local
+  gitlab_backup:
+    driver: local
+  gitlab_db:
+    driver: local
+  pipeline_db:
+    driver: local
+networks:
+  cmwl-dev:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.1.0/24
+services:
+  pipeline_db:
+    image: "postgres:12.1-alpine"
+    container_name: "pipeline_db"
+    hostname: ${PIPELINE_DB_HOST:-pipeline_db}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pipeline_db}
+      POSTGRES_USER: ${POSTGRES_USER:-pipeline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pipeline}
+    networks:
+      - cmwl-dev
+    ports:
+      - "6432:5432"
+    volumes:
+      - 'pipeline_db:/var/lib/postgresql/data'
+  redis:
+    image: "redis:5.0.7"
+    container_name: "redis"
+    hostname: "redis"
+    networks:
+      - cmwl-dev
+
+  gitlab_db:
+    image: "postgres:12.1-alpine"
+    container_name: "gitlab_db"
+    hostname: ${GITLAB_DB_HOST:-gitlab_db}
+    #   Setup the username, password, and database name
+    environment:
+      - POSTGRES_DB=${GITLAB_DB_NAME:-gitlab}
+      - POSTGRES_USER=${GITLAB_DB_USER:-gitlab}
+      - POSTGRES_PASSWORD=${GITLAB_DB_PASS:-gitlab}
+    networks:
+      - cmwl-dev
+    ports:
+      - "7432:5432"
+    volumes:
+      - gitlab_db:/var/lib/postgresql/data
+
+  gitlab:
+    image: 'gitlab/gitlab-ce:12.7.5-ce.0'
+    restart: always
+    hostname: "gitlab"
+    container_name: "gitlab"
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        ## Nginx
+        nginx['enable'] = true
+        nginx['listen_port'] = 9080
+        external_url 'http://gitlab:9080'
+        nginx['listen_https'] = false
+        nginx['redirect_http_to_https'] = false
+        # https://blue.cse.buffalo.edu/gitlab/help/install/requirements.md
+        unicorn['worker_timeout'] = 60
+        unicorn['worker_processes'] = 3
+        # additional gitlab.rb configuration goes here, each on its own line
+        ### Enable/Disable some services
+        gitaly['enable'] = true
+        redis['enable'] = false
+        grafana['enable'] = false
+        mattermost['enable'] = false
+        postgresql['enable'] = false
+        prometheus['enable'] = false
+        alertmanager['enable'] = false
+        letsencrypt['enabled'] = false
+        node_exporter['enable'] = false
+        redis_exporter['enable'] = false
+        gitlab_exporter['enable'] = false
+        postgres_exporter['enable'] = false
+        prometheus_monitoring['enable'] = false
+        # https://docs.gitlab.com/omnibus/settings/database.html#using-a-non-packaged-postgresql-database-management-server
+        gitlab_rails['db_port'] = '${GITLAB_DB_PORT:-5432}'
+        gitlab_rails['db_host'] = '${GITLAB_DB_HOST:-gitlab_db}'
+        gitlab_rails['db_password'] = '${GITLAB_DB_USER:-gitlab}'
+        gitlab_rails['db_username'] = '${GITLAB_DB_PASS:-gitlab}'
+        gitlab_rails['db_database'] = '${GITLAB_DB_NAME:-gitlab}'
+        gitlab_rails['auto_migrate'] = true
+        gitlab_rails['ldap_enabled'] = false
+        gitlab_rails['usage_ping_enabled'] = false
+        gitlab_rails['db_adapter'] = 'postgresql'
+        gitlab_rails['db_encoding'] = 'unicode'
+        gitlab_rails['db_collation'] = nil
+        gitlab_rails['db_pool'] = 10
+        gitlab_rails['db_socket'] = nil
+        gitlab_rails['db_sslmode'] = nil
+        gitlab_rails['db_sslrootcert'] = nil
+        gitlab_rails['db_sslcompression'] = 0
+        gitlab_rails['db_statements_limit'] = 1000
+        gitlab_rails['db_prepared_statements'] = false
+        gitlab_rails['redis_host'] = 'redis'
+        gitlab_rails['redis_port'] = '6379'
+        gitlab_rails['backup_keep_time'] = 172800
+        storage_check['enable'] = false
+        praefect['enable'] = false
+    networks:
+      - cmwl-dev
+    depends_on:
+      - gitlab_db
+      - redis
+    ports:
+      - '9080:9080'
+      - '9022:22'
+    volumes:
+      - 'gitlab_config:/etc/gitlab'
+      - 'gitlab_logs:/var/log/gitlab'
+      - 'gitlab_data:/var/opt/gitlab'
+      - 'gitlab_backup:/var/opt/gitlab/backups'
