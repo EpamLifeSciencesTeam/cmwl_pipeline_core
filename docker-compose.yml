@@ -13,8 +13,6 @@ volumes:
     driver: local
   gitlab_db:
     driver: local
-  pipeline_db:
-    driver: local
 networks:
   cmwl-dev:
     driver: bridge
@@ -23,20 +21,6 @@ networks:
       config:
         - subnet: 10.0.1.0/24
 services:
-  pipeline_db:
-    image: "postgres:12.1-alpine"
-    container_name: "pipeline_db"
-    hostname: ${PIPELINE_DB_HOST:-pipeline_db}
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-pipeline_db}
-      POSTGRES_USER: ${POSTGRES_USER:-pipeline}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pipeline}
-    networks:
-      - cmwl-dev
-    ports:
-      - "6432:5432"
-    volumes:
-      - 'pipeline_db:/var/lib/postgresql/data'
   redis:
     image: "redis:5.0.7"
     container_name: "redis"
@@ -63,16 +47,25 @@ services:
   gitlab:
     image: 'gitlab/gitlab-ce:12.7.5-ce.0'
     restart: always
-    hostname: "gitlab"
+    hostname: "gitlab.cmwl.ru.com"
     container_name: "gitlab"
     environment:
       GITLAB_OMNIBUS_CONFIG: |
         ## Nginx
+        external_url = 'https://gitlab.cmwl.ru.com:443/'
         nginx['enable'] = true
-        nginx['listen_port'] = 9080
-        external_url 'http://gitlab:9080'
-        nginx['listen_https'] = false
-        nginx['redirect_http_to_https'] = false
+        nginx['listen_port'] = 443
+        gitlab_rails['gitlab_port'] = 443
+        mattermost_nginx['listen_port'] = 443
+        mattermost['port'] = 443
+        pages_nginx['listen_port'] = 443
+        gitlab_rails['pages_port'] = 443
+        nginx['listen_https'] = true
+        nginx['redirect_http_to_https'] = true
+        nginx['redirect_http_to_https_port'] = 80
+        nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.cmwl.ru.com.crt"
+        nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.cmwl.ru.com.key"
+        registry_nginx['redirect_http_to_https'] = true
         # https://blue.cse.buffalo.edu/gitlab/help/install/requirements.md
         unicorn['worker_timeout'] = 60
         unicorn['worker_processes'] = 3
@@ -121,10 +114,13 @@ services:
       - gitlab_db
       - redis
     ports:
-      - '9080:9080'
-      - '9022:22'
+      - '80:80'
+      - '443:443'
+      - '2222:22'
     volumes:
       - 'gitlab_config:/etc/gitlab'
       - 'gitlab_logs:/var/log/gitlab'
       - 'gitlab_data:/var/opt/gitlab'
       - 'gitlab_backup:/var/opt/gitlab/backups'
+      - '/etc/letsencrypt/live/gitlab.cmwl.ru.com/privkey.pem:/etc/gitlab/ssl/gitlab.cmwl.ru.com.key:ro'
+      - '/etc/letsencrypt/live/gitlab.cmwl.ru.com/fullchain.pem:/etc/gitlab/ssl/gitlab.cmwl.ru.com.crt:ro'
